@@ -1,0 +1,215 @@
+definitions:
+  types.ErrorResponseBody:
+    properties:
+      error:
+        type: string
+    type: object
+  types.GetTokensRequestBody:
+    properties:
+      code:
+        type: integer
+      user_id:
+        type: string
+    required:
+    - code
+    - user_id
+    type: object
+  types.GetTokensResponseBody:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  types.LoginRequestBody:
+    properties:
+      device_fingerprint:
+        type: string
+      email:
+        type: string
+    required:
+    - device_fingerprint
+    - email
+    type: object
+  types.LoginResponseBody:
+    properties:
+      user_id:
+        type: string
+    type: object
+  types.RefreshRequestBody:
+    properties:
+      refresh_token:
+        type: string
+      user_id:
+        type: string
+    required:
+    - refresh_token
+    - user_id
+    type: object
+  types.RefreshResponseBody:
+    properties:
+      access_token:
+        type: string
+    type: object
+  types.SignupRequestBody:
+    properties:
+      device_fingerprint:
+        type: string
+      email:
+        type: string
+      firstname:
+        type: string
+      lastname:
+        type: string
+    required:
+    - device_fingerprint
+    - email
+    - firstname
+    type: object
+  types.SignupResponseBody:
+    properties:
+      user_id:
+        type: string
+    type: object
+info:
+  contact: {}
+  title: Identity service
+  version: "1.0"
+paths:
+  /auth/get_tokens:
+    post:
+      consumes:
+      - application/json
+      description: Gets access and refresh tokens.
+      parameters:
+      - description: Get tokens request body
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/types.GetTokensRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.GetTokensResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+      summary: GetTokens
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Logs in a user.
+      parameters:
+      - description: Login request body
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/types.LoginRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.LoginResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+      summary: Login
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refreshes access token.
+      parameters:
+      - description: Refresh request body
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/types.RefreshRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.RefreshResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+      summary: Refresh
+      tags:
+      - auth
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user.
+      parameters:
+      - description: Signup request body
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/types.SignupRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SignupResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+      summary: Signup
+      tags:
+      - auth
+swagger: "2.0"

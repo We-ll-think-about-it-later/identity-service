@@ -1,0 +1,28 @@
+services:
+  identity:
+    build: .
+    container_name: identity-service
+    image: app
+    env_file:
+      - .env
+    ports:
+      - ${HTTP_PORT}:${HTTP_PORT}
+    depends_on:
+      - mongo
+    networks:
+      - net
+
+  mongo:
+     container_name: mongodb
+     image: mongo
+     env_file:
+       - .env
+     restart: always
+     # volumes:
+     #   - ./mongodb:/data/db
+     networks:
+       - net
+
+networks:
+  net:
+    driver: bridge
