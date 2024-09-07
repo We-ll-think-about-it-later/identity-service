@@ -17,8 +17,6 @@ type Server struct {
 	Usecase service.UserService
 }
 
-const AUTH_PREFIX = "/auth"
-
 func NewServer(uc service.UserService, logger *logger.Logger) *Server {
 	logger.SetPrefix("controller - http ")
 
@@ -42,13 +40,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) configureRouter() {
-	auth := s.router.Group(AUTH_PREFIX)
+	auth := s.router.Group("/auth")
 	{
 		auth.POST("/signup", s.Signup)
 		auth.POST("/login", s.Login)
 		auth.POST("/get_tokens", s.GetTokens)
 		auth.POST("/refresh", s.Refresh)
 	}
+
+	user := s.router.Group("/users")
+	user.POST("/me", s.UserMe)
 
 	s.router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, types.NewErrorResponseBody(errors.New("not found")))

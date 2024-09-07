@@ -23,6 +23,7 @@ var (
 
 type UserService interface {
 	CreateUser(ctx context.Context, profileInfo ProfileInfo) (User, error)
+	FindUserByID(ctx context.Context, userId uuid.UUID) (User, error)
 	FindUserByEmail(ctx context.Context, email string) (User, error)
 	ConfirmUser(ctx context.Context, userId uuid.UUID, code Code) error
 	SendCode(ctx context.Context, user User) error
@@ -81,6 +82,18 @@ func (s UserServiceImpl) SendCode(ctx context.Context, user User) error {
 		return fmt.Errorf("failed to save confirmation code: %w", err)
 	}
 	return nil
+}
+
+func (s UserServiceImpl) FindUserByID(ctx context.Context, userId uuid.UUID) (User, error) {
+	user, err := s.userRepository.FindByID(ctx, userId)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return User{}, ErrUserNotFound
+		}
+		return User{}, fmt.Errorf("failed to find user by id: %w", err)
+	}
+
+	return user, nil
 }
 
 func (s UserServiceImpl) FindUserByEmail(ctx context.Context, email string) (User, error) {
@@ -142,7 +155,6 @@ func (s UserServiceImpl) GetTokens(ctx context.Context, userId uuid.UUID) (Acces
 			return AccessToken{}, RefreshToken{}, ErrUserNotFound
 		}
 		return AccessToken{}, RefreshToken{}, fmt.Errorf("failed to find user by id: %w", err)
-
 	}
 
 	if !user.IsConfirmed {

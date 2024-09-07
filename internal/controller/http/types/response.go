@@ -60,3 +60,18 @@ func NewRefreshResponseBody(access model.AccessToken) RefreshResponseBody {
 		AccessToken: access.String(),
 	}
 }
+
+// UserMeResponseBody represents the response body for the /user/me endpoint.
+type UserMeResponseBody struct {
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Email     string `json:"email"`
+}
+
+func NewUserMeResponseBody(profileInfo model.ProfileInfo) UserMeResponseBody {
+	return UserMeResponseBody{
+		FirstName: profileInfo.FirstName,
+		LastName:  profileInfo.LastName,
+		Email:     profileInfo.Email,
+	}
+}

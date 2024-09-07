@@ -1,5 +1,7 @@
 package types
 
+import "github.com/google/uuid"
+
 // SignupRequestBody represents the request body for the /auth/signup endpoint.
 type SignupRequestBody struct {
 	FirstName         string `json:"firstname" binding:"required"`
@@ -24,4 +26,9 @@ type GetTokensRequestBody struct {
 type RefreshRequestBody struct {
 	UserID       string `json:"user_id" binding:"required,uuid"`
 	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// UserMeRequestBody represents the request body for the /auth/refresh endpoint.
+type UserMeRequestBody struct {
+	UserID uuid.UUID `json:"user_id" binding:"required,uuid"`
 }
