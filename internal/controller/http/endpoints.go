@@ -234,3 +234,39 @@ func (s *Server) Refresh(c *gin.Context) {
 	body := types.NewRefreshResponseBody(access)
 	c.JSON(http.StatusOK, body)
 }
+
+// UserMe godoc
+// @Summary      User me
+// @Description  Returns basic user info according to their identifiers.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        input  body      types.UserMeRequestBody  true  "User me request body"
+// @Success      200  {object}  types.UserMeResponseBody
+// @Failure      400  {object}  types.ErrorResponseBody
+// @Failure      401  {object}  types.ErrorResponseBody
+// @Failure      404  {object}  types.ErrorResponseBody
+// @Failure      500  {object}  types.ErrorResponseBody
+// @Router       /users/me [post]
+func (s *Server) UserMe(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var userMeRequestBody types.UserMeRequestBody
+	if err := c.BindJSON(&userMeRequestBody); err != nil {
+		errorResponse(c, s.Logger, err, http.StatusBadRequest)
+		return
+	}
+
+	user, err := s.Usecase.FindUserByID(ctx, userMeRequestBody.UserID)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			errorResponse(c, s.Logger, err, http.StatusNotFound)
+		} else {
+			errorResponse(c, s.Logger, err, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	body := types.NewUserMeResponseBody(user.ProfileInfo)
+	c.JSON(http.StatusOK, body)
+}
