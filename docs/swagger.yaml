@@ -71,6 +71,22 @@ definitions:
       user_id:
         type: string
     type: object
+  types.UserMeRequestBody:
+    properties:
+      user_id:
+        type: string
+    required:
+    - user_id
+    type: object
+  types.UserMeResponseBody:
+    properties:
+      email:
+        type: string
+      firstname:
+        type: string
+      lastname:
+        type: string
+    type: object
 info:
   contact: {}
   title: Identity service
@@ -212,4 +228,42 @@ paths:
       summary: Signup
       tags:
       - auth
+  /users/me:
+    post:
+      consumes:
+      - application/json
+      description: Returns basic user info according to their identifiers.
+      parameters:
+      - description: User me request body
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/types.UserMeRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.UserMeResponseBody'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+      summary: User me
+      tags:
+      - users
 swagger: "2.0"
