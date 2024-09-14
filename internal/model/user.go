@@ -1,42 +1,37 @@
 package model
 
 import (
-	"errors"
-
 	"github.com/We-ll-think-about-it-later/identity-service/pkg/email"
 	"github.com/google/uuid"
 )
 
-var (
-	ErrInvalidEmail = errors.New("")
-)
-
 type ProfileInfo struct {
-	FirstName         string `bson:"firstname"`
-	LastName          string `bson:"lastname"`
-	Email             string `bson:"email"`
-	DeviceFingerprint string `bson:"device_fingerprint"`
+	FirstName string  `bson:"firstname"`
+	LastName  *string `bson:"lastname" validate:"omitempty"`
+	UserName  string  `bson:"username"`
+}
+
+type ProfileInfoUpdate struct {
+	FirstName *string `bson:"firstname" validate:"omitempty"`
+	LastName  *string `bson:"lastname" validate:"omitempty"`
+	UserName  *string `bson:"username" validate:"omitempty"`
 }
 
 type User struct {
-	UserId      uuid.UUID   `bson:"_id"`
-	IsConfirmed bool        `bson:"is_confirmed"`
-	ProfileInfo ProfileInfo `bson:"profile_info"`
+	UserId      uuid.UUID    `bson:"_id"`
+	Email       email.Email  `bson:"email"`
+	ProfileInfo *ProfileInfo `bson:"profile_info" validate:"omitempty"`
 }
 
-func NewProfileInfo(firstname, lastname, mail, deviceFingerprint string) (ProfileInfo, error) {
-	if !email.IsValidEmail(mail) {
-		return ProfileInfo{}, ErrInvalidEmail
-	}
+func NewProfileInfo(username, firstname string, lastname *string) ProfileInfo {
 	return ProfileInfo{
-		FirstName:         firstname,
-		LastName:          lastname,
-		Email:             mail,
-		DeviceFingerprint: deviceFingerprint,
-	}, nil
+		FirstName: firstname,
+		LastName:  lastname,
+		UserName:  username,
+	}
 }
 
-func NewUser(profile ProfileInfo) User {
+func NewUser(email email.Email) User {
 	userId := uuid.New()
-	return User{UserId: userId, ProfileInfo: profile, IsConfirmed: false}
+	return User{UserId: userId, Email: email, ProfileInfo: nil}
 }

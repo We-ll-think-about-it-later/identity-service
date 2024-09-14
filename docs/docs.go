@@ -15,7 +15,53 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/auth/get_tokens": {
+        "/auth/authenticate": {
+            "post": {
+                "description": "Authenticates a user or creates a new user if one doesn't exist.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Authenticate",
+                "parameters": [
+                    {
+                        "description": "Authentication request body",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.AuthenticateRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/types.AuthenticateResponseBody"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/token": {
             "post": {
                 "description": "Gets access and refresh tokens.",
                 "consumes": [
@@ -37,6 +83,20 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/types.GetTokensRequestBody"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "User ID (added on API gateway)",
+                        "name": "X-User-Id",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 hash of device fingerprint",
+                        "name": "X-Device-Fingerprint",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -67,59 +127,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/login": {
-            "post": {
-                "description": "Logs in a user.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Login",
-                "parameters": [
-                    {
-                        "description": "Login request body",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/types.LoginRequestBody"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/types.LoginResponseBody"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/types.ErrorResponseBody"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/types.ErrorResponseBody"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/types.ErrorResponseBody"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/refresh": {
+        "/auth/token/refresh": {
             "post": {
                 "description": "Refreshes access token.",
                 "consumes": [
@@ -141,6 +149,20 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/types.RefreshRequestBody"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "User ID (added on API gateway)",
+                        "name": "X-User-Id",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 hash of device fingerprint",
+                        "name": "X-Device-Fingerprint",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -177,9 +199,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/signup": {
-            "post": {
-                "description": "Creates a new user.",
+        "/users/{user_id}/profile": {
+            "get": {
+                "description": "Gets user profile information.",
                 "consumes": [
                     "application/json"
                 ],
@@ -187,29 +209,40 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "users"
                 ],
-                "summary": "Signup",
+                "summary": "GetUserProfile",
                 "parameters": [
                     {
-                        "description": "Signup request body",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/types.SignupRequestBody"
-                        }
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 hash of device fingerprint",
+                        "name": "X-Device-Fingerprint",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/types.SignupResponseBody"
+                            "$ref": "#/definitions/types.UserProfileResponseBody"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
@@ -221,11 +254,9 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/users/me": {
+            },
             "post": {
-                "description": "Returns basic user info according to their identifiers.",
+                "description": "Creates user profile information.",
                 "consumes": [
                     "application/json"
                 ],
@@ -235,23 +266,37 @@ const docTemplate = `{
                 "tags": [
                     "users"
                 ],
-                "summary": "User me",
+                "summary": "CreateUserProfile",
                 "parameters": [
                     {
-                        "description": "User me request body",
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update user profile request body",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/types.UserMeRequestBody"
+                            "$ref": "#/definitions/types.CreateUserProfileRequestBody"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 hash of device fingerprint",
+                        "name": "X-Device-Fingerprint",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/types.UserMeResponseBody"
+                            "$ref": "#/definitions/types.UserProfileResponseBody"
                         }
                     },
                     "400": {
@@ -260,8 +305,66 @@ const docTemplate = `{
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Updates user profile information.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "UpdateUserProfile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update user profile request body",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.UpdateUserProfileRequestBody"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 hash of device fingerprint",
+                        "name": "X-Device-Fingerprint",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/types.UserProfileResponseBody"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
@@ -283,6 +386,43 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "types.AuthenticateRequestBody": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.AuthenticateResponseBody": {
+            "type": "object",
+            "properties": {
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.CreateUserProfileRequestBody": {
+            "type": "object",
+            "required": [
+                "firstname",
+                "username"
+            ],
+            "properties": {
+                "firstname": {
+                    "type": "string"
+                },
+                "lastname": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "types.ErrorResponseBody": {
             "type": "object",
             "properties": {
@@ -294,15 +434,11 @@ const docTemplate = `{
         "types.GetTokensRequestBody": {
             "type": "object",
             "required": [
-                "code",
-                "user_id"
+                "code"
             ],
             "properties": {
                 "code": {
                     "type": "integer"
-                },
-                "user_id": {
-                    "type": "string"
                 }
             }
         },
@@ -317,40 +453,13 @@ const docTemplate = `{
                 }
             }
         },
-        "types.LoginRequestBody": {
-            "type": "object",
-            "required": [
-                "device_fingerprint",
-                "email"
-            ],
-            "properties": {
-                "device_fingerprint": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                }
-            }
-        },
-        "types.LoginResponseBody": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
         "types.RefreshRequestBody": {
             "type": "object",
             "required": [
-                "refresh_token",
-                "user_id"
+                "refresh_token"
             ],
             "properties": {
                 "refresh_token": {
-                    "type": "string"
-                },
-                "user_id": {
                     "type": "string"
                 }
             }
@@ -363,57 +472,34 @@ const docTemplate = `{
                 }
             }
         },
-        "types.SignupRequestBody": {
+        "types.UpdateUserProfileRequestBody": {
             "type": "object",
             "required": [
-                "device_fingerprint",
-                "email",
-                "firstname"
+                "firstname",
+                "username"
             ],
             "properties": {
-                "device_fingerprint": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
                 "firstname": {
                     "type": "string"
                 },
                 "lastname": {
                     "type": "string"
-                }
-            }
-        },
-        "types.SignupResponseBody": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "types.UserMeRequestBody": {
-            "type": "object",
-            "required": [
-                "user_id"
-            ],
-            "properties": {
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "types.UserMeResponseBody": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
                 },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.UserProfileResponseBody": {
+            "type": "object",
+            "properties": {
                 "firstname": {
                     "type": "string"
                 },
                 "lastname": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }

@@ -7,7 +7,7 @@ import (
 
 	. "github.com/We-ll-think-about-it-later/identity-service/internal/model"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/repository"
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/email"
+	. "github.com/We-ll-think-about-it-later/identity-service/pkg/email"
 	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/google/uuid"
 )
@@ -19,22 +19,24 @@ var (
 	ErrCodeMismatch         = errors.New("code mismatch")
 	ErrUserNotFound         = errors.New("user not found")
 	ErrUserNotConfirmed     = errors.New("user not confirmed")
+	ErrProfileDoesNotExist  = errors.New("profile doesn't exist")
+	ErrProfileAlreadyExists = errors.New("profile alredy exists")
 )
 
 type UserService interface {
-	CreateUser(ctx context.Context, profileInfo ProfileInfo) (User, error)
-	FindUserByID(ctx context.Context, userId uuid.UUID) (User, error)
-	FindUserByEmail(ctx context.Context, email string) (User, error)
-	ConfirmUser(ctx context.Context, userId uuid.UUID, code Code) error
-	SendCode(ctx context.Context, user User) error
-	Login(ctx context.Context, email string) (User, error)
+	Authenticate(ctx context.Context, email Email) (uuid.UUID, bool, error)
+	CheckCode(ctx context.Context, userId uuid.UUID, code Code) error
 	GetTokens(ctx context.Context, userId uuid.UUID) (AccessToken, RefreshToken, error)
+	GetUserProfile(ctx context.Context, userId uuid.UUID) (ProfileInfo, error)
 	Refresh(ctx context.Context, userId uuid.UUID, token RefreshToken) (AccessToken, error)
+	SendCode(ctx context.Context, user User) error
+	CreateUserProfile(ctx context.Context, userId uuid.UUID, profileInfo ProfileInfo) (ProfileInfo, error)
+	UpdateUserProfile(ctx context.Context, userId uuid.UUID, profileInfo ProfileInfoUpdate) (ProfileInfo, error)
 }
 
 type UserServiceImpl struct {
 	tokenService   TokenService
-	emailSender    *email.EmailSender
+	emailSender    *EmailSender
 	userRepository repository.UserRepository
 	codeRepository repository.CodeRepository
 	logger         *logger.Logger
@@ -42,7 +44,7 @@ type UserServiceImpl struct {
 
 func NewUserService(
 	tokenService TokenService,
-	emailSender *email.EmailSender,
+	emailSender *EmailSender,
 	userRepository repository.UserRepository,
 	codeRepository repository.CodeRepository,
 	logger *logger.Logger,
@@ -58,57 +60,28 @@ func NewUserService(
 	}
 }
 
-func (s UserServiceImpl) CreateUser(ctx context.Context, profileInfo ProfileInfo) (User, error) {
-	user, err := s.userRepository.CreateUser(ctx, profileInfo)
+func (s UserServiceImpl) Authenticate(ctx context.Context, email Email) (uuid.UUID, bool, error) {
+	isNewUser := false
+	// user, err := s.userRepository.FindByEmail(ctx, email)
+	//
+	// if errors.Is(err, repository.ErrUserNotFound) {
+	// 	isNewUser = true
+	user, err := s.userRepository.CreateUser(ctx, email)
+	// }
+
 	if err != nil {
-		return User{}, fmt.Errorf("failed to create user: %w", err)
+		return uuid.Nil, false, err
 	}
-	return user, nil
+
+	err = s.SendCode(ctx, user)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+
+	return user.UserId, isNewUser, nil
 }
 
-func (s UserServiceImpl) SendCode(ctx context.Context, user User) error {
-	code := NewCode()
-	encryptedCode, err := Encrypt(code)
-	if err != nil {
-		return fmt.Errorf("failed to encrypt confirmation code: %w", err)
-	}
-	err = s.emailSender.Send(user.ProfileInfo.Email, "Confirmation code: "+code.String())
-	if err != nil {
-		return fmt.Errorf("failed to send confirmation code: %w", err)
-	}
-
-	err = s.codeRepository.SaveConfirmationCode(ctx, user.UserId, encryptedCode)
-	if err != nil {
-		return fmt.Errorf("failed to save confirmation code: %w", err)
-	}
-	return nil
-}
-
-func (s UserServiceImpl) FindUserByID(ctx context.Context, userId uuid.UUID) (User, error) {
-	user, err := s.userRepository.FindByID(ctx, userId)
-	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return User{}, ErrUserNotFound
-		}
-		return User{}, fmt.Errorf("failed to find user by id: %w", err)
-	}
-
-	return user, nil
-}
-
-func (s UserServiceImpl) FindUserByEmail(ctx context.Context, email string) (User, error) {
-	user, err := s.userRepository.FindByEmail(ctx, email)
-	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return User{}, ErrUserNotFound
-		}
-		return User{}, fmt.Errorf("failed to find user by email: %w", err)
-	}
-
-	return user, nil
-}
-
-func (s UserServiceImpl) ConfirmUser(ctx context.Context, userId uuid.UUID, code Code) error {
+func (s UserServiceImpl) CheckCode(ctx context.Context, userId uuid.UUID, code Code) error {
 	storedCode, err := s.codeRepository.GetConfirmationCode(ctx, userId)
 	if err != nil {
 		if errors.Is(err, repository.ErrCodeNotFound) {
@@ -121,44 +94,16 @@ func (s UserServiceImpl) ConfirmUser(ctx context.Context, userId uuid.UUID, code
 		return ErrCodeMismatch
 	}
 
-	err = s.codeRepository.DeleteConfirmationCode(ctx, userId)
-	s.logger.Debug(err)
-
-	err = s.userRepository.ConfirmUser(ctx, userId)
-	if err != nil {
-		return fmt.Errorf("failed to confirm user: %w", err)
-	}
-
-	return nil
-}
-
-func (s UserServiceImpl) Login(ctx context.Context, email string) (User, error) {
-	user, err := s.userRepository.FindByEmail(ctx, email)
-	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return User{}, ErrUserNotFound
-		}
-		return User{}, fmt.Errorf("failed to find user by email: %w", err)
-	}
-
-	if !user.IsConfirmed {
-		return User{}, ErrUserNotConfirmed
-	}
-
-	return user, nil
+	return s.codeRepository.DeleteConfirmationCode(ctx, userId)
 }
 
 func (s UserServiceImpl) GetTokens(ctx context.Context, userId uuid.UUID) (AccessToken, RefreshToken, error) {
-	user, err := s.userRepository.FindByID(ctx, userId)
+	_, err := s.userRepository.FindById(ctx, userId)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return AccessToken{}, RefreshToken{}, ErrUserNotFound
 		}
 		return AccessToken{}, RefreshToken{}, fmt.Errorf("failed to find user by id: %w", err)
-	}
-
-	if !user.IsConfirmed {
-		return AccessToken{}, RefreshToken{}, ErrUserNotConfirmed
 	}
 
 	refresh, err := s.tokenService.GenerateRefreshToken(userId)
@@ -174,22 +119,33 @@ func (s UserServiceImpl) GetTokens(ctx context.Context, userId uuid.UUID) (Acces
 	return access, refresh, nil
 }
 
+func (s UserServiceImpl) GetUserProfile(ctx context.Context, userId uuid.UUID) (ProfileInfo, error) {
+	user, err := s.userRepository.FindById(ctx, userId)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ProfileInfo{}, ErrUserNotFound
+		}
+		return ProfileInfo{}, err
+	}
+	if user.ProfileInfo == nil {
+		return ProfileInfo{}, ErrProfileDoesNotExist
+	}
+
+	return *user.ProfileInfo, nil
+}
+
 func (s UserServiceImpl) Refresh(ctx context.Context, userId uuid.UUID, token RefreshToken) (AccessToken, error) {
 	isValid := s.tokenService.IsValidRefreshToken(userId, token)
 	if !isValid {
 		return AccessToken{}, ErrInvalidRefreshToken
 	}
 
-	user, err := s.userRepository.FindByID(ctx, userId)
+	_, err := s.userRepository.FindById(ctx, userId)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return AccessToken{}, ErrUserNotFound
 		}
 		return AccessToken{}, fmt.Errorf("failed to find user by id: %w", err)
-	}
-
-	if !user.IsConfirmed {
-		return AccessToken{}, ErrUserNotConfirmed
 	}
 
 	newAccess, err := s.tokenService.GenerateAccessToken(userId)
@@ -198,4 +154,63 @@ func (s UserServiceImpl) Refresh(ctx context.Context, userId uuid.UUID, token Re
 	}
 
 	return newAccess, nil
+}
+
+func (s UserServiceImpl) SendCode(ctx context.Context, user User) error {
+	code := NewCode()
+	encryptedCode, err := Encrypt(code)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt confirmation code: %w", err)
+	}
+	err = s.emailSender.Send(user.Email, "Confirmation code: "+code.String())
+	if err != nil {
+		return fmt.Errorf("failed to send confirmation code: %w", err)
+	}
+
+	err = s.codeRepository.SaveConfirmationCode(ctx, user.UserId, encryptedCode)
+	if err != nil {
+		return fmt.Errorf("failed to save confirmation code: %w", err)
+	}
+	return nil
+}
+
+func (s UserServiceImpl) CreateUserProfile(ctx context.Context, userId uuid.UUID, profileInfo ProfileInfo) (ProfileInfo, error) {
+	user, err := s.userRepository.FindById(ctx, userId)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ProfileInfo{}, ErrUserNotFound
+		}
+		return ProfileInfo{}, err
+	}
+
+	if user.ProfileInfo != nil {
+		return ProfileInfo{}, ErrProfileAlreadyExists
+	}
+
+	err = s.userRepository.CreateProfile(ctx, userId, profileInfo)
+	if err != nil {
+		return ProfileInfo{}, err
+	}
+
+	return profileInfo, nil
+}
+
+func (s UserServiceImpl) UpdateUserProfile(ctx context.Context, userId uuid.UUID, profileInfo ProfileInfoUpdate) (ProfileInfo, error) {
+	user, err := s.userRepository.FindById(ctx, userId)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ProfileInfo{}, ErrUserNotFound
+		}
+		return ProfileInfo{}, err
+	}
+
+	if user.ProfileInfo == nil {
+		return ProfileInfo{}, ErrProfileDoesNotExist
+	}
+	newProfile, err := s.userRepository.UpdateProfile(ctx, userId, profileInfo)
+	if err != nil {
+		return ProfileInfo{}, err
+	}
+
+	return newProfile, nil
 }

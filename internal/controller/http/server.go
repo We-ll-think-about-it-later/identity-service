@@ -4,6 +4,12 @@ import (
 	"errors"
 	"net/http"
 
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	// Swagger docs.
+	_ "github.com/We-ll-think-about-it-later/identity-service/docs"
+
 	"github.com/We-ll-think-about-it-later/identity-service/internal/controller/http/middleware"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/controller/http/types"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/service"
@@ -40,16 +46,26 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) configureRouter() {
+	// Swagger
+	swaggerHandler := ginSwagger.DisablingWrapHandler(swaggerFiles.Handler, "DISABLE_SWAGGER_HTTP_HANDLER")
+	s.router.GET("/swagger/*any", swaggerHandler)
+
+	// K8s probe
+	s.router.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
+
 	auth := s.router.Group("/auth")
 	{
-		auth.POST("/signup", s.Signup)
-		auth.POST("/login", s.Login)
-		auth.POST("/get_tokens", s.GetTokens)
-		auth.POST("/refresh", s.Refresh)
+		auth.POST("/authenticate", s.Authenticate)
+		auth.POST("/token", s.GetTokens)
+		auth.POST("/token/refresh", s.Refresh)
 	}
 
-	user := s.router.Group("/users")
-	user.POST("/me", s.UserMe)
+	users := s.router.Group("/users")
+	{
+		users.POST("/:user_id/profile", s.CreateUserProfile)
+		users.PATCH("/:user_id/profile", s.UpdateUserProfile)
+		users.GET("/:user_id/profile", s.GetUserProfile)
+	}
 
 	s.router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, types.NewErrorResponseBody(errors.New("not found")))
