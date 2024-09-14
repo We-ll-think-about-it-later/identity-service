@@ -1,5 +1,8 @@
 package http
 
+// @title           Identity service
+// @version         1.0
+
 import (
 	"errors"
 	"net/http"
@@ -10,29 +13,11 @@ import (
 	"github.com/We-ll-think-about-it-later/identity-service/internal/controller/http/types"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/model"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/service"
+	"github.com/We-ll-think-about-it-later/identity-service/pkg/email"
 	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-/*
-== Endpoints ==
-
-Handlers
-  - Signup
-  - Login
-  - GetTokens
-  - Refresh
-
-Errors:
-	* if there is an error in the input data, the handler returns HTTP 400,
-	* if the user is not found, the handler returns HTTP 404,
-	* if there is an internal server error, the handler returns HTTP 500,
-	* if the refresh token is invalid, the handler returns HTTP 401,
-*/
-
-// @title           Identity service
-// @version         1.0
 
 // errorResponse writes an error response to the client.
 func errorResponse(c *gin.Context, logger *logger.Logger, err error, statusCode int) {
@@ -40,95 +25,49 @@ func errorResponse(c *gin.Context, logger *logger.Logger, err error, statusCode 
 	c.JSON(statusCode, types.NewErrorResponseBody(err))
 }
 
-// Signup godoc
-// @Summary      Signup
-// @Description  Creates a new user.
+// Authenticate godoc
+// @Summary      Authenticate
+// @Description  Authenticates a user or creates a new user if one doesn't exist.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        input  body      types.SignupRequestBody  true  "Signup request body"
-// @Success      200  {object}  types.SignupResponseBody
+// @Param        input  body      types.AuthenticateRequestBody  true  "Authentication request body"
+// @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
+// @Success      200  {object}  types.AuthenticateResponseBody
 // @Failure      400  {object}  types.ErrorResponseBody
 // @Failure      500  {object}  types.ErrorResponseBody
-// @Router       /auth/signup [post]
-func (s *Server) Signup(c *gin.Context) {
+// @Router       /auth/authenticate [post]
+func (s *Server) Authenticate(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var signupRequestBody types.SignupRequestBody
+	var authenticateRequestBody types.AuthenticateRequestBody
 
-	err := c.BindJSON(&signupRequestBody)
+	err := c.BindJSON(&authenticateRequestBody)
 	if err != nil {
 		errorResponse(c, s.Logger, err, http.StatusBadRequest)
 		return
 	}
 
-	newProfileInfo, err := model.NewProfileInfo(
-		signupRequestBody.FirstName,
-		signupRequestBody.LastName,
-		signupRequestBody.Email,
-		signupRequestBody.DeviceFingerprint,
-	)
+	email, err := email.NewEmail(authenticateRequestBody.Email)
 	if err != nil {
 		errorResponse(c, s.Logger, err, http.StatusBadRequest)
 		return
 	}
 
-	user, err := s.Usecase.CreateUser(ctx, newProfileInfo)
+	userId, isNewUser, err := s.Usecase.Authenticate(ctx, email)
 	if err != nil {
-		errorResponse(c, s.Logger, err, http.StatusInternalServerError)
+		s.Logger.Error(err)
+		errorResponse(c, s.Logger, nil, http.StatusInternalServerError)
 		return
 	}
 
-	err = s.Usecase.SendCode(ctx, user)
-	if err != nil {
-		s.Logger.Debug(err)
-		errorResponse(c, s.Logger, service.ErrFailedToSendCode, http.StatusInternalServerError)
+	body := types.NewAuthenticateResponseBody(userId)
+
+	if isNewUser {
+		c.JSON(http.StatusCreated, body)
+	} else {
+		c.JSON(http.StatusOK, body)
 	}
-
-	body := types.NewSignupResponseBody(user.UserId)
-	c.JSON(http.StatusOK, body)
-}
-
-// Login godoc
-// @Summary      Login
-// @Description  Logs in a user.
-// @Tags         auth
-// @Accept       json
-// @Produce      json
-// @Param        input  body      types.LoginRequestBody  true  "Login request body"
-// @Success      200  {object}  types.LoginResponseBody
-// @Failure      400  {object}  types.ErrorResponseBody
-// @Failure      404  {object}  types.ErrorResponseBody
-// @Failure      500  {object}  types.ErrorResponseBody
-// @Router       /auth/login [post]
-func (s *Server) Login(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	var loginRequestBody types.LoginRequestBody
-	err := c.BindJSON(&loginRequestBody)
-	if err != nil {
-		errorResponse(c, s.Logger, err, http.StatusBadRequest)
-		return
-	}
-
-	user, err := s.Usecase.FindUserByEmail(ctx, loginRequestBody.Email)
-	if err != nil {
-		if errors.Is(err, service.ErrUserNotFound) {
-			errorResponse(c, s.Logger, err, http.StatusNotFound)
-		} else {
-			errorResponse(c, s.Logger, err, http.StatusInternalServerError)
-		}
-		return
-	}
-
-	err = s.Usecase.SendCode(ctx, user)
-	if err != nil {
-		s.Logger.Debug(err)
-		errorResponse(c, s.Logger, service.ErrFailedToSendCode, http.StatusInternalServerError)
-	}
-
-	body := types.NewLoginResponseBody(user.UserId)
-	c.JSON(http.StatusOK, body)
 }
 
 // GetTokens godoc
@@ -138,11 +77,13 @@ func (s *Server) Login(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        input  body      types.GetTokensRequestBody  true  "Get tokens request body"
+// @Param        X-User-Id              header     string  true  "User ID (added on API gateway)"
+// @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
 // @Success      200  {object}  types.GetTokensResponseBody
 // @Failure      400  {object}  types.ErrorResponseBody
 // @Failure      404  {object}  types.ErrorResponseBody
 // @Failure      500  {object}  types.ErrorResponseBody
-// @Router       /auth/get_tokens [post]
+// @Router       /auth/token [post]
 func (s *Server) GetTokens(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -153,7 +94,7 @@ func (s *Server) GetTokens(c *gin.Context) {
 		return
 	}
 
-	userId, err := uuid.Parse(getTokensRequestBody.UserID)
+	userId, err := uuid.Parse(c.GetHeader("X-User-Id"))
 	if err != nil {
 		errorResponse(c, s.Logger, err, http.StatusBadRequest)
 		return
@@ -161,23 +102,29 @@ func (s *Server) GetTokens(c *gin.Context) {
 
 	code, err := model.NewCodeFromInt(getTokensRequestBody.Code)
 	if err != nil {
-		errorResponse(c, s.Logger, err, http.StatusBadRequest)
+		errorResponse(c, s.Logger, err, http.StatusUnauthorized)
 		return
 	}
 
-	err = s.Usecase.ConfirmUser(ctx, userId, code)
+	err = s.Usecase.CheckCode(ctx, userId, code)
 	if err != nil {
-		if errors.Is(err, service.ErrUserNotFound) {
-			errorResponse(c, s.Logger, err, http.StatusNotFound)
-		} else {
-			errorResponse(c, s.Logger, err, http.StatusInternalServerError)
+		if errors.Is(err, service.ErrCodeMismatch) {
+			errorResponse(c, s.Logger, err, http.StatusUnauthorized)
+			return
 		}
+		if errors.Is(err, service.ErrUserNotFound) {
+			errorResponse(c, s.Logger, err, http.StatusUnauthorized)
+			return
+		}
+		s.Logger.Error(err)
+		errorResponse(c, s.Logger, nil, http.StatusInternalServerError)
 		return
 	}
 
 	access, refresh, err := s.Usecase.GetTokens(ctx, userId)
 	if err != nil {
-		errorResponse(c, s.Logger, err, http.StatusInternalServerError)
+		s.Logger.Error(err)
+		errorResponse(c, s.Logger, nil, http.StatusInternalServerError)
 		return
 	}
 
@@ -192,12 +139,14 @@ func (s *Server) GetTokens(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        input  body      types.RefreshRequestBody  true  "Refresh request body"
+// @Param        X-User-Id              header     string  true  "User ID (added on API gateway)"
+// @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
 // @Success      200  {object}  types.RefreshResponseBody
 // @Failure      400  {object}  types.ErrorResponseBody
 // @Failure      401  {object}  types.ErrorResponseBody
 // @Failure      404  {object}  types.ErrorResponseBody
 // @Failure      500  {object}  types.ErrorResponseBody
-// @Router       /auth/refresh [post]
+// @Router       /auth/token/refresh [post]
 func (s *Server) Refresh(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -207,9 +156,9 @@ func (s *Server) Refresh(c *gin.Context) {
 		return
 	}
 
-	userId, err := uuid.Parse(refreshRequestBody.UserID)
+	userId, err := uuid.Parse(c.GetHeader("X-User-Id"))
 	if err != nil {
-		errorResponse(c, s.Logger, err, http.StatusBadRequest)
+		errorResponse(c, s.Logger, err, http.StatusUnauthorized)
 		return
 	}
 
@@ -222,11 +171,12 @@ func (s *Server) Refresh(c *gin.Context) {
 	access, err := s.Usecase.Refresh(ctx, userId, refreshToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidRefreshToken) {
-			errorResponse(c, s.Logger, err, http.StatusUnauthorized)
+			errorResponse(c, s.Logger, err, http.StatusForbidden)
 		} else if errors.Is(err, service.ErrUserNotFound) {
 			errorResponse(c, s.Logger, err, http.StatusNotFound)
 		} else {
-			errorResponse(c, s.Logger, err, http.StatusInternalServerError)
+			s.Logger.Error(err)
+			errorResponse(c, s.Logger, nil, http.StatusInternalServerError)
 		}
 		return
 	}
@@ -235,38 +185,133 @@ func (s *Server) Refresh(c *gin.Context) {
 	c.JSON(http.StatusOK, body)
 }
 
-// UserMe godoc
-// @Summary      User me
-// @Description  Returns basic user info according to their identifiers.
+// CreateUserProfile godoc
+// @Summary      CreateUserProfile
+// @Description  Creates user profile information.
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        input  body      types.UserMeRequestBody  true  "User me request body"
-// @Success      200  {object}  types.UserMeResponseBody
+// @Param        user_id   path      string  true  "User ID"
+// @Param        input  body      types.CreateUserProfileRequestBody  true  "Update user profile request body"
+// @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
+// @Success      200  {object}  types.UserProfileResponseBody
 // @Failure      400  {object}  types.ErrorResponseBody
-// @Failure      401  {object}  types.ErrorResponseBody
 // @Failure      404  {object}  types.ErrorResponseBody
 // @Failure      500  {object}  types.ErrorResponseBody
-// @Router       /users/me [post]
-func (s *Server) UserMe(c *gin.Context) {
+// @Router       /users/{user_id}/profile [post]
+func (s *Server) CreateUserProfile(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var userMeRequestBody types.UserMeRequestBody
-	if err := c.BindJSON(&userMeRequestBody); err != nil {
+	userId, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
 		errorResponse(c, s.Logger, err, http.StatusBadRequest)
 		return
 	}
 
-	user, err := s.Usecase.FindUserByID(ctx, userMeRequestBody.UserID)
+	var createUserProfileRequestBody types.CreateUserProfileRequestBody
+	if err := c.BindJSON(&createUserProfileRequestBody); err != nil {
+		errorResponse(c, s.Logger, err, http.StatusBadRequest)
+		return
+	}
+
+	profile := createUserProfileRequestBody.ToProfileInfo()
+	newProfile, err := s.Usecase.CreateUserProfile(ctx, userId, profile)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			errorResponse(c, s.Logger, err, http.StatusNotFound)
 		} else {
-			errorResponse(c, s.Logger, err, http.StatusInternalServerError)
+			s.Logger.Error(err)
+			errorResponse(c, s.Logger, nil, http.StatusInternalServerError)
 		}
 		return
 	}
 
-	body := types.NewUserMeResponseBody(user.ProfileInfo)
+	body := types.NewUserProfileResponseBody(newProfile)
+	c.JSON(http.StatusCreated, body)
+}
+
+// UpdateUserProfile godoc
+// @Summary      UpdateUserProfile
+// @Description  Updates user profile information.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        user_id   path      string  true  "User ID"
+// @Param        input  body      types.UpdateUserProfileRequestBody  true  "Update user profile request body"
+// @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
+// @Success      200  {object}  types.UserProfileResponseBody
+// @Failure      400  {object}  types.ErrorResponseBody
+// @Failure      404  {object}  types.ErrorResponseBody
+// @Failure      500  {object}  types.ErrorResponseBody
+// @Router       /users/{user_id}/profile [patch]
+func (s *Server) UpdateUserProfile(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userId, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		errorResponse(c, s.Logger, err, http.StatusBadRequest)
+		return
+	}
+
+	var updateUserProfileRequestBody types.UpdateUserProfileRequestBody
+	if err := c.BindJSON(&updateUserProfileRequestBody); err != nil {
+		errorResponse(c, s.Logger, err, http.StatusBadRequest)
+		return
+	}
+
+	profileInfoUpdate := updateUserProfileRequestBody.ToProfileInfoUpdate()
+	newProfile, err := s.Usecase.UpdateUserProfile(ctx, userId, profileInfoUpdate)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			errorResponse(c, s.Logger, err, http.StatusNotFound)
+		} else {
+			s.Logger.Error(err)
+			errorResponse(c, s.Logger, nil, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	body := types.NewUserProfileResponseBody(newProfile)
+	c.JSON(http.StatusOK, body)
+}
+
+// GetUserProfile godoc
+// @Summary      GetUserProfile
+// @Description  Gets user profile information.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        user_id   path      string  true  "User ID"
+// @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
+// @Success      200  {object}  types.UserProfileResponseBody
+// @Failure      400  {object}  types.ErrorResponseBody
+// @Failure      404  {object}  types.ErrorResponseBody
+// @Failure      500  {object}  types.ErrorResponseBody
+// @Router       /users/{user_id}/profile [get]
+func (s *Server) GetUserProfile(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userId, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		errorResponse(c, s.Logger, err, http.StatusBadRequest)
+		return
+	}
+
+	userProfile, err := s.Usecase.GetUserProfile(ctx, userId)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			errorResponse(c, s.Logger, err, http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, service.ErrProfileDoesNotExist) {
+			errorResponse(c, s.Logger, err, http.StatusNotFound)
+			return
+		}
+		s.Logger.Error(err)
+		errorResponse(c, s.Logger, nil, http.StatusInternalServerError)
+		return
+	}
+
+	body := types.NewUserProfileResponseBody(userProfile)
 	c.JSON(http.StatusOK, body)
 }

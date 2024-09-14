@@ -10,34 +10,28 @@ type ErrorResponseBody struct {
 }
 
 func NewErrorResponseBody(err error) ErrorResponseBody {
+	errMsg := "Internal Server Error"
+	if err != nil {
+		errMsg = err.Error()
+	}
+
 	return ErrorResponseBody{
-		Error: err.Error(),
+		Error: errMsg,
 	}
 }
 
-// SignupResponseBody represents the response body for the /auth/signup endpoint.
-type SignupResponseBody struct {
-	UserId string `json:"user_id"`
+// AuthenticateResponseBody represents the response body for the /auth/authenticate endpoint.
+type AuthenticateResponseBody struct {
+	UserID uuid.UUID `json:"user_id"`
 }
 
-func NewSignupResponseBody(userId uuid.UUID) SignupResponseBody {
-	return SignupResponseBody{
-		UserId: userId.String(),
+func NewAuthenticateResponseBody(userId uuid.UUID) AuthenticateResponseBody {
+	return AuthenticateResponseBody{
+		UserID: userId,
 	}
 }
 
-// LoginResponseBody represents the response body for the /auth/login endpoint.
-type LoginResponseBody struct {
-	UserId string `json:"user_id"`
-}
-
-func NewLoginResponseBody(userId uuid.UUID) LoginResponseBody {
-	return LoginResponseBody{
-		UserId: userId.String(),
-	}
-}
-
-// GetTokensResponseBody represents the response body for the /auth/get_tokens endpoint.
+// GetTokensResponseBody represents the response body for the /auth/token endpoint.
 type GetTokensResponseBody struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -50,7 +44,7 @@ func NewGetTokensResponseBody(access model.AccessToken, refresh model.RefreshTok
 	}
 }
 
-// RefreshResponseBody represents the response body for the /auth/refresh endpoint.
+// RefreshResponseBody represents the response body for the /auth/token/refresh endpoint.
 type RefreshResponseBody struct {
 	AccessToken string `json:"access_token"`
 }
@@ -61,17 +55,17 @@ func NewRefreshResponseBody(access model.AccessToken) RefreshResponseBody {
 	}
 }
 
-// UserMeResponseBody represents the response body for the /user/me endpoint.
-type UserMeResponseBody struct {
-	FirstName string `json:"firstname"`
-	LastName  string `json:"lastname"`
-	Email     string `json:"email"`
+// UserProfileResponseBody represents the response body for the /users/{user_id}/profile endpoint.
+type UserProfileResponseBody struct {
+	Firstname string  `json:"firstname"`
+	Lastname  *string `json:"lastname"`
+	Username  string  `json:"username"`
 }
 
-func NewUserMeResponseBody(profileInfo model.ProfileInfo) UserMeResponseBody {
-	return UserMeResponseBody{
-		FirstName: profileInfo.FirstName,
-		LastName:  profileInfo.LastName,
-		Email:     profileInfo.Email,
+func NewUserProfileResponseBody(profileInfo model.ProfileInfo) UserProfileResponseBody {
+	return UserProfileResponseBody{
+		Firstname: profileInfo.FirstName,
+		Lastname:  profileInfo.LastName,
+		Username:  profileInfo.UserName,
 	}
 }

@@ -1,34 +1,48 @@
 package types
 
-import "github.com/google/uuid"
+import "github.com/We-ll-think-about-it-later/identity-service/internal/model"
 
-// SignupRequestBody represents the request body for the /auth/signup endpoint.
-type SignupRequestBody struct {
-	FirstName         string `json:"firstname" binding:"required"`
-	LastName          string `json:"lastname"`
-	Email             string `json:"email" binding:"required"`
-	DeviceFingerprint string `json:"device_fingerprint" binding:"required"`
+// AuthenticateRequestBody represents the request body for the /auth/authenticate endpoint.
+type AuthenticateRequestBody struct {
+	Email string `json:"email" binding:"required"`
 }
 
-// LoginRequestBody represents the request body for the /auth/login endpoint.
-type LoginRequestBody struct {
-	Email             string `json:"email" binding:"required"`
-	DeviceFingerprint string `json:"device_fingerprint" binding:"required"`
-}
-
-// GetTokensRequestBody represents the request body for the /auth/get_tokens endpoint.
+// GetTokensRequestBody represents the request body for the /auth/token endpoint.
 type GetTokensRequestBody struct {
-	UserID string `json:"user_id" binding:"required,uuid"`
-	Code   int    `json:"code" binding:"required"`
+	Code int `json:"code" binding:"required"`
 }
 
-// RefreshRequestBody represents the request body for the /auth/refresh endpoint.
+// RefreshRequestBody represents the request body for the /auth/token/refresh endpoint.
 type RefreshRequestBody struct {
-	UserID       string `json:"user_id" binding:"required,uuid"`
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
-// UserMeRequestBody represents the request body for the /auth/refresh endpoint.
-type UserMeRequestBody struct {
-	UserID uuid.UUID `json:"user_id" binding:"required,uuid"`
+// CreateUserProfileRequestBody represents the request body for the /users/{user_id}/profile endpoint (POST).
+type CreateUserProfileRequestBody struct {
+	Username  string  `json:"username" binding:"required"`
+	Firstname string  `json:"firstname" binding:"required"`
+	Lastname  *string `json:"lastname"`
+}
+
+func (cuprb CreateUserProfileRequestBody) ToProfileInfo() model.ProfileInfo {
+	return model.ProfileInfo{
+		UserName:  cuprb.Username,
+		FirstName: cuprb.Firstname,
+		LastName:  cuprb.Lastname,
+	}
+}
+
+// UpdateUserProfileRequestBody represents the request body for the /users/{user_id}/profile endpoint (PATCH).
+type UpdateUserProfileRequestBody struct {
+	Username  *string `json:"username"`
+	Firstname *string `json:"firstname"`
+	Lastname  *string `json:"lastname"`
+}
+
+func (uuprb UpdateUserProfileRequestBody) ToProfileInfoUpdate() model.ProfileInfoUpdate {
+	return model.ProfileInfoUpdate{
+		UserName:  uuprb.Username,
+		FirstName: uuprb.Firstname,
+		LastName:  uuprb.Lastname,
+	}
 }

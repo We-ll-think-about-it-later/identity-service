@@ -56,8 +56,13 @@ func initMongoDB(cfg config.Config, log *logger.Logger) *mongodb.Client {
 
 // initEmailSender sets up the email sender and handles errors.
 func initEmailSender(cfg config.Config, log *logger.Logger) *email.EmailSender {
+	login, err := email.NewEmail(cfg.Email.Login)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	emailSender, err := email.NewEmailSender(
-		cfg.Email.Login,
+		login,
 		cfg.Email.Password,
 		cfg.Email.SmtpHost,
 		cfg.Email.SmtpPort,
@@ -65,6 +70,7 @@ func initEmailSender(cfg config.Config, log *logger.Logger) *email.EmailSender {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	return &emailSender
 }
 
