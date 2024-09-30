@@ -2,9 +2,10 @@ package email
 
 import (
 	"errors"
-	"net/smtp"
+	"fmt"
+	// "net/smtp"
 	"regexp"
-	"strconv"
+	// "strconv"
 )
 
 var (
@@ -36,15 +37,17 @@ func NewEmailSender(from Email, password, smtpHost string, smtpPort int) (EmailS
 }
 
 func (sender EmailSender) Send(to Email, message string) error {
-	messageBytes := []byte(message)
+	// messageBytes := []byte(message)
+	fmt.Println(message)
+	return nil
 
-	auth := smtp.PlainAuth("", sender.from.Value, sender.password, sender.smtpHost)
+	// auth := smtp.PlainAuth("", sender.from.Value, sender.password, sender.smtpHost)
 
-	return smtp.SendMail(
-		sender.smtpHost+":"+strconv.Itoa(sender.smtpPort),
-		auth,
-		sender.from.Value,
-		[]string{to.Value},
-		messageBytes,
-	)
+	// return smtp.SendMail(
+	// 	sender.smtpHost+":"+strconv.Itoa(sender.smtpPort),
+	// 	auth,
+	// 	sender.from.Value,
+	// 	[]string{to.Value},
+	// 	messageBytes,
+	// )
 }
