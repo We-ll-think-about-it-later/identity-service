@@ -62,9 +62,6 @@ definitions:
         type: string
       username:
         type: string
-    required:
-    - firstname
-    - username
     type: object
   types.UserProfileResponseBody:
     properties:
@@ -84,7 +81,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticates a user or creates a new user if one doesn't exist.
+      description: Authenticates a user and sends a verification code to their email.
+        Returns the user's UUID.
       parameters:
       - description: Authentication request body
         in: body
@@ -92,19 +90,24 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/types.AuthenticateRequestBody'
+      - description: SHA-256 hash of device fingerprint
+        in: header
+        name: X-Device-Fingerprint
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: User found
+          schema:
+            $ref: '#/definitions/types.AuthenticateResponseBody'
+        "201":
+          description: User created
           schema:
             $ref: '#/definitions/types.AuthenticateResponseBody'
         "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/types.ErrorResponseBody'
-        "500":
-          description: Internal Server Error
+          description: Invalid request
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
       summary: Authenticate
@@ -114,7 +117,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Gets access and refresh tokens.
+      description: Retrieves access and refresh tokens after verification code entry.  The
+        refresh token is set in an HTTP-only cookie by the API Gateway.
       parameters:
       - description: Get tokens request body
         in: body
@@ -122,7 +126,7 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/types.GetTokensRequestBody'
-      - description: User ID (added on API gateway)
+      - description: User ID
         in: header
         name: X-User-Id
         required: true
@@ -136,19 +140,23 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Tokens issued
           schema:
             $ref: '#/definitions/types.GetTokensResponseBody'
         "400":
-          description: Bad Request
+          description: Invalid request
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
-        "404":
-          description: Not Found
+        "401":
+          description: Invalid user ID or user not found
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "403":
+          description: Invalid verification code
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
       summary: GetTokens
@@ -158,7 +166,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Refreshes access token.
+      description: Refreshes the access token. The refresh token is retrieved from
+        an HTTP-only cookie by the API Gateway.
       parameters:
       - description: Refresh request body
         in: body
@@ -166,7 +175,7 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/types.RefreshRequestBody'
-      - description: User ID (added on API gateway)
+      - description: User ID
         in: header
         name: X-User-Id
         required: true
@@ -180,23 +189,27 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Access token refreshed
           schema:
             $ref: '#/definitions/types.RefreshResponseBody'
         "400":
-          description: Bad Request
+          description: Invalid request
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "401":
-          description: Unauthorized
+          description: Invalid user ID or user not found
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "403":
+          description: Invalid refresh token
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "404":
-          description: Not Found
+          description: User not found
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
       summary: Refresh
@@ -222,19 +235,19 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Profile found
           schema:
             $ref: '#/definitions/types.UserProfileResponseBody'
         "400":
-          description: Bad Request
+          description: Invalid request
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "404":
-          description: Not Found
+          description: User or profile not found
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
       summary: GetUserProfile
@@ -265,19 +278,23 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Profile updated
           schema:
             $ref: '#/definitions/types.UserProfileResponseBody'
         "400":
-          description: Bad Request
+          description: Invalid request
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "404":
-          description: Not Found
+          description: User or profile not found
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "409":
+          description: Username already taken" // Added 409 conflict
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
       summary: UpdateUserProfile
@@ -293,7 +310,7 @@ paths:
         name: user_id
         required: true
         type: string
-      - description: Update user profile request body
+      - description: Create user profile request body
         in: body
         name: input
         required: true
@@ -307,20 +324,24 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Profile created
           schema:
             $ref: '#/definitions/types.UserProfileResponseBody'
         "400":
-          description: Bad Request
+          description: Invalid request
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "404":
-          description: Not Found
+          description: User not found
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "409":
+          description: Username already taken" // Added 409 conflict
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
       summary: CreateUserProfile

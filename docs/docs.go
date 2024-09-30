@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/auth/authenticate": {
             "post": {
-                "description": "Authenticates a user or creates a new user if one doesn't exist.",
+                "description": "Authenticates a user and sends a verification code to their email. Returns the user's UUID.",
                 "consumes": [
                     "application/json"
                 ],
@@ -37,23 +37,30 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/types.AuthenticateRequestBody"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 hash of device fingerprint",
+                        "name": "X-Device-Fingerprint",
+                        "in": "header",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "User found",
+                        "schema": {
+                            "$ref": "#/definitions/types.AuthenticateResponseBody"
+                        }
+                    },
+                    "201": {
+                        "description": "User created",
                         "schema": {
                             "$ref": "#/definitions/types.AuthenticateResponseBody"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/types.ErrorResponseBody"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
@@ -63,7 +70,7 @@ const docTemplate = `{
         },
         "/auth/token": {
             "post": {
-                "description": "Gets access and refresh tokens.",
+                "description": "Retrieves access and refresh tokens after verification code entry.  The refresh token is set in an HTTP-only cookie by the API Gateway.",
                 "consumes": [
                     "application/json"
                 ],
@@ -86,7 +93,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "User ID (added on API gateway)",
+                        "description": "User ID",
                         "name": "X-User-Id",
                         "in": "header",
                         "required": true
@@ -101,25 +108,31 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Tokens issued",
                         "schema": {
                             "$ref": "#/definitions/types.GetTokensResponseBody"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "401": {
+                        "description": "Invalid user ID or user not found",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Invalid verification code",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
@@ -129,7 +142,7 @@ const docTemplate = `{
         },
         "/auth/token/refresh": {
             "post": {
-                "description": "Refreshes access token.",
+                "description": "Refreshes the access token. The refresh token is retrieved from an HTTP-only cookie by the API Gateway.",
                 "consumes": [
                     "application/json"
                 ],
@@ -152,7 +165,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "User ID (added on API gateway)",
+                        "description": "User ID",
                         "name": "X-User-Id",
                         "in": "header",
                         "required": true
@@ -167,31 +180,37 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Access token refreshed",
                         "schema": {
                             "$ref": "#/definitions/types.RefreshResponseBody"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Invalid user ID or user not found",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Invalid refresh token",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "User not found",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
@@ -230,25 +249,25 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Profile found",
                         "schema": {
                             "$ref": "#/definitions/types.UserProfileResponseBody"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "User or profile not found",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
@@ -276,7 +295,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Update user profile request body",
+                        "description": "Create user profile request body",
                         "name": "input",
                         "in": "body",
                         "required": true,
@@ -293,26 +312,32 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Profile created",
                         "schema": {
                             "$ref": "#/definitions/types.UserProfileResponseBody"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Username already taken\" // Added 409 conflict",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
@@ -358,25 +383,31 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Profile updated",
                         "schema": {
                             "$ref": "#/definitions/types.UserProfileResponseBody"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "User or profile not found",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Username already taken\" // Added 409 conflict",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponseBody"
                         }
@@ -474,10 +505,6 @@ const docTemplate = `{
         },
         "types.UpdateUserProfileRequestBody": {
             "type": "object",
-            "required": [
-                "firstname",
-                "username"
-            ],
             "properties": {
                 "firstname": {
                     "type": "string"

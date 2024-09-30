@@ -27,15 +27,15 @@ func errorResponse(c *gin.Context, logger *logger.Logger, err error, statusCode 
 
 // Authenticate godoc
 // @Summary      Authenticate
-// @Description  Authenticates a user or creates a new user if one doesn't exist.
+// @Description  Authenticates a user and sends a verification code to their email. Returns the user's UUID.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        input  body      types.AuthenticateRequestBody  true  "Authentication request body"
 // @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
-// @Success      200  {object}  types.AuthenticateResponseBody
-// @Failure      400  {object}  types.ErrorResponseBody
-// @Failure      500  {object}  types.ErrorResponseBody
+// @Success      200  {object}  types.AuthenticateResponseBody  "User found"
+// @Success      201  {object}  types.AuthenticateResponseBody  "User created"
+// @Failure      400  {object}  types.ErrorResponseBody  "Invalid request"
 // @Router       /auth/authenticate [post]
 func (s *Server) Authenticate(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -72,17 +72,18 @@ func (s *Server) Authenticate(c *gin.Context) {
 
 // GetTokens godoc
 // @Summary      GetTokens
-// @Description  Gets access and refresh tokens.
+// @Description  Retrieves access and refresh tokens after verification code entry.  The refresh token is set in an HTTP-only cookie by the API Gateway.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        input  body      types.GetTokensRequestBody  true  "Get tokens request body"
-// @Param        X-User-Id              header     string  true  "User ID (added on API gateway)"
+// @Param        X-User-Id              header     string  true  "User ID"
 // @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
-// @Success      200  {object}  types.GetTokensResponseBody
-// @Failure      400  {object}  types.ErrorResponseBody
-// @Failure      404  {object}  types.ErrorResponseBody
-// @Failure      500  {object}  types.ErrorResponseBody
+// @Success      200  {object}  types.GetTokensResponseBody  "Tokens issued"
+// @Failure      400  {object}  types.ErrorResponseBody  "Invalid request"
+// @Failure      401  {object}  types.ErrorResponseBody  "Invalid user ID or user not found"
+// @Failure      403  {object}  types.ErrorResponseBody "Invalid verification code"
+// @Failure      500  {object}  types.ErrorResponseBody "Internal server error"
 // @Router       /auth/token [post]
 func (s *Server) GetTokens(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -134,18 +135,19 @@ func (s *Server) GetTokens(c *gin.Context) {
 
 // Refresh godoc
 // @Summary      Refresh
-// @Description  Refreshes access token.
+// @Description  Refreshes the access token. The refresh token is retrieved from an HTTP-only cookie by the API Gateway.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        input  body      types.RefreshRequestBody  true  "Refresh request body"
-// @Param        X-User-Id              header     string  true  "User ID (added on API gateway)"
+// @Param        X-User-Id              header     string  true  "User ID"
 // @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
-// @Success      200  {object}  types.RefreshResponseBody
-// @Failure      400  {object}  types.ErrorResponseBody
-// @Failure      401  {object}  types.ErrorResponseBody
-// @Failure      404  {object}  types.ErrorResponseBody
-// @Failure      500  {object}  types.ErrorResponseBody
+// @Success      200  {object}  types.RefreshResponseBody  "Access token refreshed"
+// @Failure      400  {object}  types.ErrorResponseBody  "Invalid request"
+// @Failure      401  {object}  types.ErrorResponseBody  "Invalid user ID or user not found"
+// @Failure      403  {object}  types.ErrorResponseBody  "Invalid refresh token"
+// @Failure      404  {object}  types.ErrorResponseBody "User not found"
+// @Failure      500  {object}  types.ErrorResponseBody "Internal server error"
 // @Router       /auth/token/refresh [post]
 func (s *Server) Refresh(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -192,12 +194,13 @@ func (s *Server) Refresh(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        user_id   path      string  true  "User ID"
-// @Param        input  body      types.CreateUserProfileRequestBody  true  "Update user profile request body"
+// @Param        input  body      types.CreateUserProfileRequestBody  true  "Create user profile request body"
 // @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
-// @Success      200  {object}  types.UserProfileResponseBody
-// @Failure      400  {object}  types.ErrorResponseBody
-// @Failure      404  {object}  types.ErrorResponseBody
-// @Failure      500  {object}  types.ErrorResponseBody
+// @Success      201  {object}  types.UserProfileResponseBody  "Profile created"
+// @Failure      400  {object}  types.ErrorResponseBody  "Invalid request"
+// @Failure      404  {object}  types.ErrorResponseBody  "User not found"
+// @Failure      409  {object}  types.ErrorResponseBody "Username already taken" // Added 409 conflict
+// @Failure      500  {object}  types.ErrorResponseBody "Internal server error"
 // @Router       /users/{user_id}/profile [post]
 func (s *Server) CreateUserProfile(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -239,10 +242,11 @@ func (s *Server) CreateUserProfile(c *gin.Context) {
 // @Param        user_id   path      string  true  "User ID"
 // @Param        input  body      types.UpdateUserProfileRequestBody  true  "Update user profile request body"
 // @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
-// @Success      200  {object}  types.UserProfileResponseBody
-// @Failure      400  {object}  types.ErrorResponseBody
-// @Failure      404  {object}  types.ErrorResponseBody
-// @Failure      500  {object}  types.ErrorResponseBody
+// @Success      200  {object}  types.UserProfileResponseBody  "Profile updated"
+// @Failure      400  {object}  types.ErrorResponseBody  "Invalid request"
+// @Failure      404  {object}  types.ErrorResponseBody  "User or profile not found"
+// @Failure      409  {object}  types.ErrorResponseBody "Username already taken" // Added 409 conflict
+// @Failure      500  {object}  types.ErrorResponseBody "Internal server error"
 // @Router       /users/{user_id}/profile [patch]
 func (s *Server) UpdateUserProfile(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -283,10 +287,10 @@ func (s *Server) UpdateUserProfile(c *gin.Context) {
 // @Produce      json
 // @Param        user_id   path      string  true  "User ID"
 // @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
-// @Success      200  {object}  types.UserProfileResponseBody
-// @Failure      400  {object}  types.ErrorResponseBody
-// @Failure      404  {object}  types.ErrorResponseBody
-// @Failure      500  {object}  types.ErrorResponseBody
+// @Success      200  {object}  types.UserProfileResponseBody  "Profile found"
+// @Failure      400  {object}  types.ErrorResponseBody  "Invalid request"
+// @Failure      404  {object}  types.ErrorResponseBody  "User or profile not found"
+// @Failure      500  {object}  types.ErrorResponseBody "Internal server error"
 // @Router       /users/{user_id}/profile [get]
 func (s *Server) GetUserProfile(c *gin.Context) {
 	ctx := c.Request.Context()
