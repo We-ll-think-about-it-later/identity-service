@@ -8,8 +8,8 @@ import (
 
 	. "github.com/We-ll-think-about-it-later/identity-service/internal/model"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/repository/mock"
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -19,11 +19,12 @@ var (
 	encryptedToken, _ = Encrypt(validToken)
 	lifetime          = int64(120)
 	secret            = []byte("secret")
+	logger            = logrus.New()
 )
 
 func TestGenerateAccessToken(t *testing.T) {
 	repo := mock.NewTokenRepositoryMock(userId, encryptedToken)
-	tokenService := NewTokenService(repo, lifetime, secret, logger.EmptyLogger)
+	tokenService := NewTokenService(repo, lifetime, secret, logger)
 
 	accessToken, err := tokenService.GenerateAccessToken(userId)
 	if err != nil {
@@ -35,7 +36,7 @@ func TestGenerateAccessToken(t *testing.T) {
 
 func TestIsValidRefreshToken_Valid(t *testing.T) {
 	repo := mock.NewTokenRepositoryMock(userId, encryptedToken)
-	tokenService := NewTokenService(repo, lifetime, secret, logger.EmptyLogger)
+	tokenService := NewTokenService(repo, lifetime, secret, logger)
 
 	isValid := tokenService.IsValidRefreshToken(userId, validToken)
 	if !isValid {
@@ -45,7 +46,7 @@ func TestIsValidRefreshToken_Valid(t *testing.T) {
 
 func TestIsValidRefreshToken_Invalid(t *testing.T) {
 	repo := mock.NewTokenRepositoryMock(userId, encryptedToken)
-	tokenService := NewTokenService(repo, lifetime, secret, logger.EmptyLogger)
+	tokenService := NewTokenService(repo, lifetime, secret, logger)
 
 	isValid := tokenService.IsValidRefreshToken(userId, invalidToken)
 	if isValid {

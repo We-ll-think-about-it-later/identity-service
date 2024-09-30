@@ -14,14 +14,26 @@ import (
 	"github.com/We-ll-think-about-it-later/identity-service/internal/repository"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/service"
 	"github.com/We-ll-think-about-it-later/identity-service/pkg/email"
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/We-ll-think-about-it-later/identity-service/pkg/mongodb"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func Run(cfg config.Config) {
-	log := logger.NewLogger(cfg.Level, os.Stdin)
-	log.SetPrefix("app run ")
+	// Set logging
+	log := logrus.New()
+
+	logLevel, err := logrus.ParseLevel(cfg.Log.Level)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing log level: %v\n", err)
+		os.Exit(1)
+	}
+
+	log.SetLevel(logLevel)
+	if logLevel > logrus.DebugLevel {
+		log.SetReportCaller(true)
+	}
+	log.SetOutput(os.Stdout)
 
 	// Initialize MongoDB
 	mongo := initMongoDB(cfg, log)
@@ -40,7 +52,7 @@ func Run(cfg config.Config) {
 }
 
 // initMongoDB sets up the MongoDB connection and returns the client.
-func initMongoDB(cfg config.Config, log *logger.Logger) *mongodb.Client {
+func initMongoDB(cfg config.Config, log *logrus.Logger) *mongodb.Client {
 	mongoCreds := options.Credential{
 		Username: cfg.MongoDB.User,
 		Password: cfg.MongoDB.Password,
@@ -55,7 +67,7 @@ func initMongoDB(cfg config.Config, log *logger.Logger) *mongodb.Client {
 }
 
 // initEmailSender sets up the email sender and handles errors.
-func initEmailSender(cfg config.Config, log *logger.Logger) *email.EmailSender {
+func initEmailSender(cfg config.Config, log *logrus.Logger) *email.EmailSender {
 	login, err := email.NewEmail(cfg.Email.Login)
 	if err != nil {
 		log.Fatal(err)
@@ -75,7 +87,7 @@ func initEmailSender(cfg config.Config, log *logger.Logger) *email.EmailSender {
 }
 
 // initServices initializes the user and token services.
-func initServices(cfg config.Config, mongo *mongodb.Client, emailSender *email.EmailSender, log *logger.Logger) service.UserService {
+func initServices(cfg config.Config, mongo *mongodb.Client, emailSender *email.EmailSender, log *logrus.Logger) service.UserService {
 	dbName := "identity"
 
 	// Initialize repositories
@@ -91,7 +103,7 @@ func initServices(cfg config.Config, mongo *mongodb.Client, emailSender *email.E
 }
 
 // startHTTPServer configures and starts the HTTP server with graceful shutdown.
-func startHTTPServer(cfg config.Config, userService service.UserService, log *logger.Logger) {
+func startHTTPServer(cfg config.Config, userService service.UserService, log *logrus.Logger) {
 	// Initialize Gin router and HTTP server
 	server := http2.NewServer(userService, log)
 

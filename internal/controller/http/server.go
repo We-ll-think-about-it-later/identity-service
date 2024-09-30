@@ -13,22 +13,21 @@ import (
 	"github.com/We-ll-think-about-it-later/identity-service/internal/controller/http/middleware"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/controller/http/types"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/service"
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type Server struct {
-	Logger  *logger.Logger
+	Logger  *logrus.Logger
 	router  *gin.Engine
 	Usecase service.UserService
 }
 
-func NewServer(uc service.UserService, logger *logger.Logger) *Server {
-	logger.SetPrefix("controller - http ")
+func NewServer(uc service.UserService, logger *logrus.Logger) *Server {
+	logger = logger.WithField("prefix", "controller - http").Logger
 
-	router := gin.Default()
-	router.Use(middleware.LoggingMiddleware(logger))
-	router.Use(gin.Recovery())
+	router := gin.New()
+	router.Use(middleware.LoggingMiddleware(logger), gin.Recovery())
 
 	s := Server{
 		router:  router,

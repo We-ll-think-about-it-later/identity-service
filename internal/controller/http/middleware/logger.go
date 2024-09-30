@@ -5,9 +5,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog"
+	"github.com/sirupsen/logrus"
 )
 
 // responseWriter is a minimal wrapper for http.ResponseWriter that allows the
@@ -36,8 +35,8 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.wroteHeader = true
 }
 
-// LoggingMiddleware logs the incoming HTTP request & its duration using zerolog.
-func LoggingMiddleware(logger *logger.Logger) gin.HandlerFunc {
+// LoggingMiddleware logs the incoming HTTP request & its duration using logrus.
+func LoggingMiddleware(logger *logrus.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -45,15 +44,15 @@ func LoggingMiddleware(logger *logger.Logger) gin.HandlerFunc {
 
 				// Type assertion to check if the recovered value is an error
 				if recErr, ok := err.(error); ok {
-					logger.Zerolog.Error().
-						Err(recErr). // Pass the error if it is one
-						Bytes("stack", debug.Stack()).
-						Msg("panic recovered")
+					logger.WithFields(logrus.Fields{
+						"error": recErr,
+						"stack": string(debug.Stack()),
+					}).Error("panic recovered")
 				} else {
-					logger.Zerolog.Error().
-						Interface("recovered_value", err). // Log the raw value otherwise
-						Bytes("stack", debug.Stack()).
-						Msg("panic recovered (non-error value)")
+					logger.WithFields(logrus.Fields{
+						"recovered_value": err,
+						"stack":           string(debug.Stack()),
+					}).Error("panic recovered (non-error value)")
 				}
 			}
 		}()
@@ -63,18 +62,17 @@ func LoggingMiddleware(logger *logger.Logger) gin.HandlerFunc {
 		c.Writer = wrapped
 		c.Next()
 
-		var logEvent *zerolog.Event
-		if wrapped.status >= 500 {
-			logEvent = logger.Zerolog.Error()
-		} else {
-			logEvent = logger.Zerolog.Info()
-		}
+		entry := logger.WithFields(logrus.Fields{
+			"status":   wrapped.status,
+			"method":   c.Request.Method,
+			"path":     c.Request.URL.EscapedPath(),
+			"duration": time.Since(start),
+		})
 
-		logEvent.
-			Int("status", wrapped.status).
-			Str("method", c.Request.Method).
-			Str("path", c.Request.URL.EscapedPath()).
-			Dur("duration", time.Since(start)).
-			Msg("")
+		if wrapped.status >= 500 {
+			entry.Error("")
+		} else {
+			entry.Info("")
+		}
 	}
 }

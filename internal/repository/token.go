@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/We-ll-think-about-it-later/identity-service/internal/model"
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/We-ll-think-about-it-later/identity-service/pkg/mongodb"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -26,17 +26,17 @@ type TokenRepository interface {
 type TokenRepositoryImpl struct {
 	*mongodb.Client
 	*mongo.Collection
-	logger *logger.Logger
+	logger *logrus.Logger
 }
 
 func NewTokenRepository(
 	m *mongodb.Client,
 	dbName,
 	collectionName string,
-	logger *logger.Logger,
+	logger *logrus.Logger,
 ) TokenRepositoryImpl {
 	collection := m.Database(dbName).Collection(collectionName)
-	logger.SetPrefix("token repository ")
+	logger = logger.WithField("prefix", "token repository").Logger
 
 	// Create index on user_id
 	indexModel := mongo.IndexModel{

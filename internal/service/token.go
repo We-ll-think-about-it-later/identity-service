@@ -6,8 +6,8 @@ import (
 
 	. "github.com/We-ll-think-about-it-later/identity-service/internal/model"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/repository"
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -25,17 +25,17 @@ type TokenServiceImpl struct {
 	accessLifetime int64
 	accessSecret   []byte
 	repository     repository.TokenRepository
-	logger         *logger.Logger
+	logger         *logrus.Logger
 }
 
 func NewTokenService(
 	repo repository.TokenRepository,
 	accessLifetime int64,
 	accessSecret []byte,
-	logger *logger.Logger,
+	logger *logrus.Logger,
 ) TokenServiceImpl {
 
-	logger.SetPrefix("service - token ")
+	logger = logger.WithField("prefix", "token service").Logger
 
 	return TokenServiceImpl{
 		accessLifetime: accessLifetime,

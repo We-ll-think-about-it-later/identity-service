@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	. "github.com/We-ll-think-about-it-later/identity-service/internal/model"
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/We-ll-think-about-it-later/identity-service/pkg/mongodb"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -24,17 +24,17 @@ type CodeRepository interface {
 type CodeRepositoryImpl struct {
 	*mongodb.Client
 	*mongo.Collection
-	logger *logger.Logger
+	logger *logrus.Logger
 }
 
 func NewCodeRepository(
 	m *mongodb.Client,
 	dbName,
 	collectionName string,
-	logger *logger.Logger,
+	logger *logrus.Logger,
 ) CodeRepositoryImpl {
 	collection := m.Database(dbName).Collection(collectionName)
-	logger.SetPrefix("confirmation code repository ")
+	logger.WithField("prefix", "confirmation code repository ")
 
 	indexModel := mongo.IndexModel{
 		Keys: bson.D{

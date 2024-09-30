@@ -14,13 +14,13 @@ import (
 	"github.com/We-ll-think-about-it-later/identity-service/internal/model"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/service"
 	"github.com/We-ll-think-about-it-later/identity-service/pkg/email"
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 // errorResponse writes an error response to the client.
-func errorResponse(c *gin.Context, logger *logger.Logger, err error, statusCode int) {
+func errorResponse(c *gin.Context, logger *logrus.Logger, err error, statusCode int) {
 	logger.Debug(err)
 	c.JSON(statusCode, types.NewErrorResponseBody(err))
 }

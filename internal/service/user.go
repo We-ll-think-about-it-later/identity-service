@@ -8,8 +8,8 @@ import (
 	. "github.com/We-ll-think-about-it-later/identity-service/internal/model"
 	"github.com/We-ll-think-about-it-later/identity-service/internal/repository"
 	. "github.com/We-ll-think-about-it-later/identity-service/pkg/email"
-	"github.com/We-ll-think-about-it-later/identity-service/pkg/logger"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -39,7 +39,7 @@ type UserServiceImpl struct {
 	emailSender    *EmailSender
 	userRepository repository.UserRepository
 	codeRepository repository.CodeRepository
-	logger         *logger.Logger
+	logger         *logrus.Logger
 }
 
 func NewUserService(
@@ -47,9 +47,9 @@ func NewUserService(
 	emailSender *EmailSender,
 	userRepository repository.UserRepository,
 	codeRepository repository.CodeRepository,
-	logger *logger.Logger,
+	logger *logrus.Logger,
 ) UserServiceImpl {
-	logger.SetPrefix("service - user ")
+	logger = logger.WithField("prefix", "user service").Logger
 
 	return UserServiceImpl{
 		tokenService:   tokenService,
@@ -164,6 +164,7 @@ func (s UserServiceImpl) SendCode(ctx context.Context, user User) error {
 	}
 	err = s.emailSender.Send(user.Email, "Confirmation code: "+code.String())
 	if err != nil {
+		s.logger.Error(err)
 		return fmt.Errorf("failed to send confirmation code: %w", err)
 	}
 
