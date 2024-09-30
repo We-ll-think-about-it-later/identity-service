@@ -62,19 +62,18 @@ func NewUserService(
 
 func (s UserServiceImpl) Authenticate(ctx context.Context, email Email) (uuid.UUID, bool, error) {
 	isNewUser := false
-	// user, err := s.userRepository.FindByEmail(ctx, email)
-	//
-	// if errors.Is(err, repository.ErrUserNotFound) {
-	// 	isNewUser = true
-	user, err := s.userRepository.CreateUser(ctx, email)
-	// }
+	user, err := s.userRepository.FindByEmail(ctx, email)
+
+	if errors.Is(err, repository.ErrUserNotFound) {
+		isNewUser = true
+		user, err = s.userRepository.CreateUser(ctx, email)
+	}
 
 	if err != nil {
 		return uuid.Nil, false, err
 	}
 
-	err = s.SendCode(ctx, user)
-	if err != nil {
+	if err := s.SendCode(ctx, user); err != nil {
 		return uuid.Nil, false, err
 	}
 

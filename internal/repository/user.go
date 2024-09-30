@@ -68,16 +68,8 @@ func NewUserRepository(
 
 func (r UserRepositoryImpl) CreateUser(ctx context.Context, email email.Email) (User, error) {
 	user := NewUser(email)
-	insertResult, err := r.InsertOne(ctx, user)
-	if err != nil {
-		if mongo.IsDuplicateKeyError(err) {
-			return User{}, ErrEmailAlreadyRegistered
-		} else {
-			return User{}, ErrFailedToAddUser
-		}
-	}
-	r.logger.Debug("Inserted user: ", insertResult.InsertedID)
-	return user, nil
+	_, err := r.InsertOne(ctx, user)
+	return user, err
 }
 
 func (r UserRepositoryImpl) FindByEmail(ctx context.Context, email email.Email) (User, error) {
