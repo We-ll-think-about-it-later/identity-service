@@ -2,7 +2,7 @@ package model
 
 import (
 	"errors"
-	// "math/rand/v2"
+	"math/rand/v2"
 	"strconv"
 )
 
@@ -18,8 +18,7 @@ func (c Code) Bytes() []byte {
 }
 
 func NewCode() Code {
-	// return Code{rand.IntN(9000) + 1000}
-	return Code{1111}
+	return Code{rand.IntN(9000) + 1000}
 }
 
 func NewCodeFromInt(codeInt int) (Code, error) {
