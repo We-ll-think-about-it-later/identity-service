@@ -3,6 +3,7 @@ package repository
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/We-ll-think-about-it-later/identity-service/internal/model"
 	"github.com/We-ll-think-about-it-later/identity-service/pkg/mongodb"
@@ -16,6 +17,11 @@ import (
 var (
 	ErrCantUpsertRefreshToken = errors.New("can't upsert refresh token")
 	ErrCantFindRefreshToken   = errors.New("can't find refresh token")
+	ErrRefreshTokenExpired    = errors.New("refresh token expired")
+)
+
+var (
+	refreshTokenExpirationTime time.Duration = 2592000 // 30 days
 )
 
 type TokenRepository interface {
@@ -58,7 +64,12 @@ func NewTokenRepository(
 
 func (r TokenRepositoryImpl) UpsertRefreshToken(userId uuid.UUID, refreshToken model.Encrypted[model.RefreshToken]) error {
 	filter := bson.M{"user_id": userId}
-	update := bson.M{"$set": bson.M{"refresh_token": refreshToken.String()}}
+	update := bson.M{
+		"$set": bson.M{
+			"refresh_token": refreshToken.String(),
+			"expires_at":    time.Now().Add(time.Second * refreshTokenExpirationTime),
+		},
+	}
 	upsert := true
 
 	res, err := r.Collection.UpdateOne(r.Ctx, filter, update, &options.UpdateOptions{Upsert: &upsert})
@@ -76,8 +87,9 @@ func (r TokenRepositoryImpl) UpsertRefreshToken(userId uuid.UUID, refreshToken m
 
 func (r TokenRepositoryImpl) FindRefreshToken(userId uuid.UUID) (model.Encrypted[model.RefreshToken], error) {
 	var result struct {
-		UserID       string `bson:"user_id"`
-		RefreshToken string `bson:"refresh_token"`
+		UserID       string    `bson:"user_id"`
+		RefreshToken string    `bson:"refresh_token"`
+		ExpiresAt    time.Time `bson:"expires_at"`
 	}
 
 	filter := bson.M{"user_id": userId}
@@ -88,6 +100,10 @@ func (r TokenRepositoryImpl) FindRefreshToken(userId uuid.UUID) (model.Encrypted
 		}
 		r.logger.Debug(err)
 		return model.Encrypted[model.RefreshToken]{}, fmt.Errorf("failed to find refresh token: %w", err)
+	}
+
+	if result.ExpiresAt.Before(time.Now()) {
+		return model.Encrypted[model.RefreshToken]{}, ErrRefreshTokenExpired
 	}
 
 	encrypted, err := model.EncryptedFromString[model.RefreshToken](result.RefreshToken)
