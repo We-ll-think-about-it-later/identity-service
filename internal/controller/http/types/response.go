@@ -69,3 +69,26 @@ func NewUserProfileResponseBody(profileInfo model.ProfileInfo) UserProfileRespon
 		Username:  profileInfo.UserName,
 	}
 }
+
+// UserSearchResultResponseBody represents the response body for the /users/search endpoint.
+type UserSearchResultResponseBody struct {
+	UserId  uuid.UUID          `json:"user_id"`
+	Profile *model.ProfileInfo `json:"profile,omitempty"` // Include profile info if available
+}
+
+func NewUserSearchResultResponseBody(result model.UserSearchResult) UserSearchResultResponseBody {
+	responseBody := UserSearchResultResponseBody{
+		UserId:  result.UserId,
+		Profile: result.ProfileInfo,
+	}
+
+	if result.ProfileInfo != nil {
+		responseBody.Profile = &model.ProfileInfo{
+			FirstName: result.ProfileInfo.FirstName,
+			LastName:  result.ProfileInfo.LastName,
+			UserName:  result.ProfileInfo.UserName,
+		}
+	}
+
+	return responseBody
+}

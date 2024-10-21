@@ -218,6 +218,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/users/search": {
+            "get": {
+                "description": "Searches for users by username using fuzzy matching.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "SearchUsers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search term for username",
+                        "name": "searchTerm",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 hash of device fingerprint",
+                        "name": "X-Device-Fingerprint",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Users found",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/types.UserSearchResultResponseBody"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponseBody"
+                        }
+                    }
+                }
+            }
+        },
         "/users/{user_id}/profile": {
             "get": {
                 "description": "Gets user profile information.",
@@ -417,6 +471,20 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "model.ProfileInfo": {
+            "type": "object",
+            "properties": {
+                "firstName": {
+                    "type": "string"
+                },
+                "lastName": {
+                    "type": "string"
+                },
+                "userName": {
+                    "type": "string"
+                }
+            }
+        },
         "types.AuthenticateRequestBody": {
             "type": "object",
             "required": [
@@ -527,6 +595,22 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.UserSearchResultResponseBody": {
+            "type": "object",
+            "properties": {
+                "profile": {
+                    "description": "Include profile info if available",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.ProfileInfo"
+                        }
+                    ]
+                },
+                "user_id": {
                     "type": "string"
                 }
             }

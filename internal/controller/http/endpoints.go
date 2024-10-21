@@ -319,3 +319,39 @@ func (s *Server) GetUserProfile(c *gin.Context) {
 	body := types.NewUserProfileResponseBody(userProfile)
 	c.JSON(http.StatusOK, body)
 }
+
+// SearchUsers godoc
+// @Summary      SearchUsers
+// @Description  Searches for users by username using fuzzy matching.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        searchTerm   query      string  true  "Search term for username"
+// @Param        X-Device-Fingerprint   header     string  true  "SHA-256 hash of device fingerprint"
+// @Success      200  {array}   types.UserSearchResultResponseBody  "Users found"
+// @Failure      400  {object}  types.ErrorResponseBody  "Invalid request"
+// @Failure      500  {object}  types.ErrorResponseBody "Internal server error"
+// @Router       /users/search [get]
+func (s *Server) SearchUsers(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	searchTerm := c.Query("searchTerm")
+	if searchTerm == "" {
+		errorResponse(c, s.Logger, errors.New("searchTerm is required"), http.StatusBadRequest)
+		return
+	}
+
+	searchResults, err := s.Usecase.SearchByUsername(ctx, searchTerm)
+	if err != nil {
+		s.Logger.Error(err)
+		errorResponse(c, s.Logger, nil, http.StatusInternalServerError)
+		return
+	}
+
+	responseBody := make([]types.UserSearchResultResponseBody, len(searchResults))
+	for i, result := range searchResults {
+		responseBody[i] = types.NewUserSearchResultResponseBody(result)
+	}
+
+	c.JSON(http.StatusOK, responseBody)
+}

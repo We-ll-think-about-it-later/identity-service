@@ -32,6 +32,7 @@ type UserService interface {
 	SendCode(ctx context.Context, user User) error
 	CreateUserProfile(ctx context.Context, userId uuid.UUID, profileInfo ProfileInfo) (ProfileInfo, error)
 	UpdateUserProfile(ctx context.Context, userId uuid.UUID, profileInfo ProfileInfoUpdate) (ProfileInfo, error)
+	SearchByUsername(ctx context.Context, searchTerm string) ([]UserSearchResult, error)
 }
 
 type UserServiceImpl struct {
@@ -213,4 +214,12 @@ func (s UserServiceImpl) UpdateUserProfile(ctx context.Context, userId uuid.UUID
 	}
 
 	return newProfile, nil
+}
+
+func (s UserServiceImpl) SearchByUsername(ctx context.Context, searchTerm string) ([]UserSearchResult, error) {
+	results, err := s.userRepository.FuzzySearchByUsername(ctx, searchTerm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search users by username: %w", err)
+	}
+	return results, nil
 }
