@@ -1,4 +1,13 @@
 definitions:
+  model.ProfileInfo:
+    properties:
+      firstName:
+        type: string
+      lastName:
+        type: string
+      userName:
+        type: string
+    type: object
   types.AuthenticateRequestBody:
     properties:
       email:
@@ -70,6 +79,15 @@ definitions:
       lastname:
         type: string
       username:
+        type: string
+    type: object
+  types.UserSearchResultResponseBody:
+    properties:
+      profile:
+        allOf:
+        - $ref: '#/definitions/model.ProfileInfo'
+        description: Include profile info if available
+      user_id:
         type: string
     type: object
 info:
@@ -345,6 +363,42 @@ paths:
           schema:
             $ref: '#/definitions/types.ErrorResponseBody'
       summary: CreateUserProfile
+      tags:
+      - users
+  /users/search:
+    get:
+      consumes:
+      - application/json
+      description: Searches for users by username using fuzzy matching.
+      parameters:
+      - description: Search term for username
+        in: query
+        name: searchTerm
+        required: true
+        type: string
+      - description: SHA-256 hash of device fingerprint
+        in: header
+        name: X-Device-Fingerprint
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Users found
+          schema:
+            items:
+              $ref: '#/definitions/types.UserSearchResultResponseBody'
+            type: array
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/types.ErrorResponseBody'
+      summary: SearchUsers
       tags:
       - users
 swagger: "2.0"

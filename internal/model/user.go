@@ -23,6 +23,11 @@ type User struct {
 	ProfileInfo *ProfileInfo `bson:"profile_info" validate:"omitempty"`
 }
 
+type UserSearchResult struct {
+	UserId      uuid.UUID    `bson:"_id"`
+	ProfileInfo *ProfileInfo `bson:"profile_info"`
+}
+
 func NewProfileInfo(username, firstname string, lastname *string) ProfileInfo {
 	return ProfileInfo{
 		FirstName: firstname,
